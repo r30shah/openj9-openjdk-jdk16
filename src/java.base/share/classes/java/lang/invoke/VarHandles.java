@@ -22,6 +22,11 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
+/*
+ * ===========================================================================
+ * (c) Copyright IBM Corp. 2021, 2021 All Rights Reserved.
+ * ===========================================================================
+ */
 
 package java.lang.invoke;
 
@@ -349,13 +354,7 @@ final class VarHandles {
     }
 
     private static VarHandle maybeAdapt(VarHandle target) {
-        if (!VAR_HANDLE_IDENTITY_ADAPT) return target;
-        target = filterValue(target,
-                        MethodHandles.identity(target.varType()), MethodHandles.identity(target.varType()));
-        MethodType mtype = target.accessModeType(VarHandle.AccessMode.GET);
-        for (int i = 0 ; i < mtype.parameterCount() ; i++) {
-            target = filterCoordinates(target, i, MethodHandles.identity(mtype.parameterType(i)));
-        }
+        /* This optimization is disabled in OpenJ9. */
         return target;
     }
 
@@ -631,7 +630,7 @@ final class VarHandles {
             }
         } else if (handle instanceof DelegatingMethodHandle) {
             noCheckedExceptions(((DelegatingMethodHandle)handle).getTarget());
-        } else {
+        } else if (handle instanceof BoundMethodHandle) {
             //bound
             BoundMethodHandle boundHandle = (BoundMethodHandle)handle;
             for (int i = 0 ; i < boundHandle.fieldCount() ; i++) {
@@ -639,6 +638,11 @@ final class VarHandles {
                 if (arg instanceof MethodHandle){
                     noCheckedExceptions((MethodHandle) arg);
                 }
+            }
+        } else {
+            /* Temporary code to handle OpenJ9's MethodHandle implementation. This will be removed in a future release. */
+            if (MethodHandles.hasCheckedException(handle)) {
+                throw newIllegalArgumentException("Cannot adapt a var handle with a method handle which throws checked exceptions");
             }
         }
     }
