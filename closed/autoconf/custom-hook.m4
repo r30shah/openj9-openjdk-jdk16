@@ -375,23 +375,25 @@ AC_DEFUN([OPENJ9_PLATFORM_SETUP],
   # Default OPENJ9_BUILD_OS=OPENJDK_BUILD_OS, but override with OpenJ9 equivalent as appropriate
   OPENJ9_BUILD_OS="${OPENJDK_BUILD_OS}"
 
-  OMR_MIXED_REFERENCES_MODE=off
-  if test "x$with_mixedrefs" != x -a "x$with_mixedrefs" != xno; then
-    if test "x$with_mixedrefs" = xyes -o "x$with_mixedrefs" = xstatic; then
+  if test "x$with_noncompressedrefs" = xyes -o "x$with_mixedrefs" = xno -o "x$COMPILE_TYPE" = xcross ; then
+    OMR_MIXED_REFERENCES_MODE=off
+    if test "x$with_noncompressedrefs" = xyes ; then
+      OPENJ9_BUILD_MODE_ARCH="${OPENJ9_CPU}"
+      OPENJ9_LIBS_SUBDIR=default
+    else
+      OPENJ9_BUILD_MODE_ARCH="${OPENJ9_CPU}_cmprssptrs"
+      OPENJ9_LIBS_SUBDIR=compressedrefs
+    fi
+  else
+    if test "x$with_mixedrefs" = x -o "x$with_mixedrefs" = xyes -o "x$with_mixedrefs" = xstatic ; then
       OMR_MIXED_REFERENCES_MODE=static
-    elif test "x$with_mixedrefs" = xdynamic; then
+    elif test "x$with_mixedrefs" = xdynamic ; then
       OMR_MIXED_REFERENCES_MODE=dynamic
     else
       AC_MSG_ERROR([OpenJ9 supports --with-mixedrefs=static and --with-mixedrefs=dynamic])
     fi
     OPENJ9_BUILD_MODE_ARCH="${OPENJ9_CPU}_mxdptrs"
     OPENJ9_LIBS_SUBDIR=default
-  elif test "x$with_noncompressedrefs" = xyes ; then
-    OPENJ9_BUILD_MODE_ARCH="${OPENJ9_CPU}"
-    OPENJ9_LIBS_SUBDIR=default
-  else
-    OPENJ9_BUILD_MODE_ARCH="${OPENJ9_CPU}_cmprssptrs"
-    OPENJ9_LIBS_SUBDIR=compressedrefs
   fi
 
   if test "x$OPENJ9_CPU" = xx86-64 ; then
@@ -557,7 +559,7 @@ AC_DEFUN_ONCE([CUSTOM_LATE_HOOK],
 AC_DEFUN([CONFIGURE_OPENSSL],
 [
   AC_ARG_WITH(openssl, [AS_HELP_STRING([--with-openssl],
-    [Use either fetched | system | <path to openssl 1.0.2 (and above)])])
+    [Use either fetched | system | <path to openssl version 1.0.2 or later>])])
   AC_ARG_ENABLE(openssl-bundling, [AS_HELP_STRING([--enable-openssl-bundling],
     [enable bundling of the openssl crypto library with the jdk build])])
   WITH_OPENSSL=yes
