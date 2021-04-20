@@ -1,5 +1,5 @@
 # ===========================================================================
-# (c) Copyright IBM Corp. 2017, 2021 All Rights Reserved
+# (c) Copyright IBM Corp. 2021, 2021 All Rights Reserved
 # ===========================================================================
 # This code is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License version 2 only, as
@@ -18,11 +18,12 @@
 # 2 along with this work; if not, see <http://www.gnu.org/licenses/>.
 # ===========================================================================
 
-java.base_COPY += ExternalMessages.properties
-
-jdk.jcmd_EXCLUDES += sun
-
-openj9.dtfj_COPY     += CompatibilityConstants29.dat StructureAliases29.dat StructureAliases29-edg.dat
-openj9.dtfj_EXCLUDES += com/ibm/j9ddr/tools/ant
-
-openj9.gpu_COPY += ibm_gpu_thresholds.properties
+ifeq ($(MODULE),openj9.dtfj)
+  # All the classes in com.ibm.j9ddr.vm29.structure are ignored at runtime
+  # (they're derived from the blob in the related core file), so they can
+  # be excluded from the module. We can't exclude the entire package; this
+  # pattern matches everything except 'DDRAlgorithmVersions.class', so it
+  # will be the only retained class (it was chosen because it's guaranteed
+  # to be present and because it's relatively small).
+  JMOD_FLAGS += --exclude 'regex:com/ibm/j9ddr/vm29/structure/.*(?<!/DDRAlgorithmVersions\.class)$$'
+endif
