@@ -23,13 +23,6 @@
  *  questions.
  *
  */
-
-/*
- * ===========================================================================
- * (c) Copyright IBM Corp. 2021, 2021 All Rights Reserved
- * ===========================================================================
- */
-
 package jdk.internal.foreign.abi.x64.sysv;
 
 import jdk.incubator.foreign.Addressable;
@@ -130,9 +123,16 @@ public class CallArranger {
         return new Bindings(csb.build(), returnInMemory, argCalc.storageCalculator.nVectorReg);
     }
 
-    /* Replace ProgrammableInvoker in OpenJDK with the implementation of ProgrammableInvoker specific to OpenJ9 */
     public static MethodHandle arrangeDowncall(Addressable addr, MethodType mt, FunctionDescriptor cDesc) {
-        MethodHandle handle = ProgrammableInvoker.getBoundMethodHandle(addr, mt, cDesc);
+        Bindings bindings = getBindings(mt, cDesc, false);
+
+        MethodHandle handle = new ProgrammableInvoker(CSysV, addr, bindings.callingSequence).getBoundMethodHandle();
+        handle = MethodHandles.insertArguments(handle, handle.type().parameterCount() - 1, bindings.nVectorArgs);
+
+        if (bindings.isInMemoryReturn) {
+            handle = SharedUtils.adaptDowncallForIMR(handle, cDesc);
+        }
+
         return handle;
     }
 
