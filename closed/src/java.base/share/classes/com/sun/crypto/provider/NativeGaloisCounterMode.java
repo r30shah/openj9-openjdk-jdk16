@@ -353,23 +353,29 @@ final class NativeGaloisCounterMode extends FeedbackCipher {
             throw new ShortBufferException("Output buffer too small");
         }
 
-        checkDataLength(ibuffer_enc.size(), len);
+        byte[] aad;
 
-        if (len > 0) {
-            ibuffer_enc.write(in, inOfs, len);
+        // avoid any race conditions in OpenSSL when the key/iv are used concurrently
+        byte[] keyCopy = key.clone();
+        byte[] ivCopy = iv.clone();
+
+        synchronized (this) {
+            checkDataLength(ibuffer_enc.size(), len);
+
+            if (len > 0) {
+                ibuffer_enc.write(in, inOfs, len);
+            }
+
+            // refresh 'in' to all buffered-up bytes
+            in = ibuffer_enc.toByteArray();
+            ibuffer_enc.reset();
+
+            aad = ((aadBuffer == null) || (aadBuffer.size() == 0)) ? emptyAAD : aadBuffer.toByteArray();
         }
 
-        // refresh 'in' to all buffered-up bytes
-        in = ibuffer_enc.toByteArray();
-        inOfs = 0;
-        len = in.length;
-        ibuffer_enc.reset();
-
-        byte[] aad = ((aadBuffer == null || aadBuffer.size() == 0) ? emptyAAD : aadBuffer.toByteArray());
-
-        int ret = nativeCrypto.GCMEncrypt(key, key.length,
-                iv, iv.length,
-                in, inOfs, len,
+        int ret = nativeCrypto.GCMEncrypt(keyCopy, keyCopy.length,
+                ivCopy, ivCopy.length,
+                in, 0, in.length,
                 out, outOfs,
                 aad, aad.length, tagLenBytes);
         if (ret == -1) {
@@ -469,39 +475,50 @@ final class NativeGaloisCounterMode extends FeedbackCipher {
                      byte[] out, int outOfs)
         throws IllegalBlockSizeException, AEADBadTagException,
         ShortBufferException {
-        if (len < 0) {
-            throw new ProviderException("Input length is negative");
+
+        byte[] aad;
+        // avoid any race conditions in OpenSSL when the key/iv are used concurrently
+        byte[] keyCopy = key.clone();
+        byte[] ivCopy = iv.clone();
+
+
+        // need to synchronize this block as if there are concurrent calls to decryptFinal
+        // the shared variables aadBuffer and ibuffer may corrupt input and cause a segfault
+        // in openssl code
+        synchronized (this) {
+            if (len < 0) {
+                throw new ProviderException("Input length is negative");
+            }
+
+            if (len < (tagLenBytes - ibuffer.size())) {
+                throw new AEADBadTagException("Input too short - need tag");
+            }
+
+            if (len > (MAX_BUF_SIZE - ibuffer.size())) {
+                throw new ProviderException("SunJCE provider only supports "
+                    + "a positive input size up to " + MAX_BUF_SIZE + " bytes");
+            }
+
+            if ((out.length - outOfs) < (len  + ibuffer.size() - tagLenBytes)) {
+                throw new ShortBufferException("Output buffer too small");
+            }
+
+            aad = ((aadBuffer == null) || (aadBuffer.size() == 0)) ? emptyAAD : aadBuffer.toByteArray();
+
+            aadBuffer = null;
+
+            if (len > 0) {
+                ibuffer.write(in, inOfs, len);
+            }
+
+            // refresh 'in' to all buffered-up bytes
+            in = ibuffer.toByteArray();
+            ibuffer.reset();
         }
-        if (len < tagLenBytes - ibuffer.size()) {
-            throw new AEADBadTagException("Input too short - need tag");
-        }
-        if (len > MAX_BUF_SIZE - ibuffer.size()) {
-            throw new ProviderException("SunJCE provider only supports "
-                + "a positive input size up to " + MAX_BUF_SIZE + " bytes");
-        }
 
-        if (out.length - outOfs < len  + ibuffer.size() - tagLenBytes) {
-            throw new ShortBufferException("Output buffer too small");
-        }
-
-        byte[] aad = ((aadBuffer == null || aadBuffer.size() == 0) ?
-                       emptyAAD : aadBuffer.toByteArray());
-
-        aadBuffer = null;
-
-        if (len > 0) {
-            ibuffer.write(in, inOfs, len);
-        }
-
-        // refresh 'in' to all buffered-up bytes
-        in = ibuffer.toByteArray();
-        inOfs = 0;
-        len = in.length;
-        ibuffer.reset();
-
-        int ret = nativeCrypto.GCMDecrypt(key, key.length,
-                iv, iv.length,
-                in, inOfs, len,
+        int ret = nativeCrypto.GCMDecrypt(keyCopy, keyCopy.length,
+                ivCopy, ivCopy.length,
+                in, 0, in.length,
                 out, outOfs,
                 aad, aad.length, tagLenBytes);
 
