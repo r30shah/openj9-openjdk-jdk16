@@ -24,7 +24,7 @@
 #
 
 # ===========================================================================
-# (c) Copyright IBM Corp. 2019, 2019 All Rights Reserved
+# (c) Copyright IBM Corp. 2019, 2021 All Rights Reserved
 # ===========================================================================
 
 ###############################################################################
@@ -71,6 +71,32 @@ AC_DEFUN_ONCE([JDKVER_SETUP_JDK_VERSION_NUMBERS],
   AC_SUBST(PRODUCT_SUFFIX)
   AC_SUBST(JDK_RC_PLATFORM_NAME)
   AC_SUBST(HOTSPOT_VM_DISTRO)
+
+  # The launcher name, if any
+  AC_ARG_WITH(launcher-name, [AS_HELP_STRING([--with-launcher-name],
+      [Set launcher name (included in the -version and -fullversion output). @<:@not specified@:>@])])
+  if test "x$with_launcher_name" = xyes; then
+    AC_MSG_ERROR([--with-launcher-name must have a value])
+  elif [ ! [[ $with_launcher_name =~ ^[[:print:]]*$ ]] ]; then
+    AC_MSG_ERROR([--with-launcher-name contains non-printing characters: $with_launcher_name])
+  elif test "x$with_launcher_name" != x -a "x$with_launcher_name" != xno; then
+    # Only set LAUNCHER_NAME if '--with-launcher-name' was used and is not empty.
+    # Otherwise we will use the value from "version-numbers" included above.
+    LAUNCHER_NAME="$with_launcher_name"
+  fi
+
+  # The product name, if any
+  AC_ARG_WITH(product-name, [AS_HELP_STRING([--with-product-name],
+      [Set product name. Among other uses, defines the 'java.runtime.name' system property. @<:@not specified@:>@])])
+  if test "x$with_product_name" = xyes; then
+    AC_MSG_ERROR([--with-product-name must have a value])
+  elif [ ! [[ $with_product_name =~ ^[[:print:]]*$ ]] ]; then
+    AC_MSG_ERROR([--with-product-name contains non-printing characters: $with_product_name])
+  elif test "x$with_product_name" != x -a "x$with_product_name" != xno; then
+    # Only set PRODUCT_NAME if '--with-product-name' was used and is not empty.
+    # Otherwise we will use the value from "version-numbers" included above.
+    PRODUCT_NAME="$with_product_name"
+  fi
 
   # Set the JDK RC name
   AC_ARG_WITH(jdk-rc-name, [AS_HELP_STRING([--with-jdk-rc-name],
